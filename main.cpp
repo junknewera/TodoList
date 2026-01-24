@@ -1,5 +1,8 @@
+#include <ios>
 #include <iostream>
+#include <limits>
 #include <vector>
+
 struct Task {
   std::string text;
   bool done = false;
@@ -7,6 +10,7 @@ struct Task {
 
 void add(std::vector<Task> &todoList);
 void list(const std::vector<Task> &todoList);
+void done(std::vector<Task> &todoList);
 
 int main() {
   std::vector<Task> todoList{};
@@ -17,6 +21,7 @@ int main() {
     std::cout << "Enter one of the following: " << std::endl;
     std::cout << "add - to add any task" << std::endl;
     std::cout << "list - to check current tasks" << std::endl;
+    std::cout << "done - to mark any task as done" << std::endl;
     std::cout << "q - to quit" << std::endl;
 
     std::getline(std::cin, userInput);
@@ -26,6 +31,9 @@ int main() {
       add(todoList);
     } else if (userInput == "list") {
       list(todoList);
+    } else if (userInput == "done") {
+      list(todoList);
+      done(todoList);
     }
     std::cout << std::endl;
   }
@@ -54,4 +62,17 @@ void list(const std::vector<Task> &todoList) {
       std::cout << task.text << std::endl;
     }
   }
+}
+void done(std::vector<Task> &todoList) {
+  int taskNum;
+  std::cout << "Enter task number: ";
+  std::cin >> taskNum;
+  std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+
+  if (taskNum < 1 || static_cast<size_t>(taskNum) > todoList.size()) {
+    std::cout << "No such task";
+    return;
+  }
+  todoList[taskNum - 1].done = true;
+  std::cout << std::endl;
 }
