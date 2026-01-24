@@ -1,4 +1,3 @@
-#include <cctype>
 #include <iostream>
 #include <vector>
 
@@ -38,8 +37,9 @@ void list(std::vector<std::string> &todoList) {
   if (todoList.empty()) {
     std::cout << "Todo List is empty!\n";
   } else {
-    for (int i = 0; i < todoList.size(); i++) {
-      std::cout << i + 1 << ". " << todoList[i] << std::endl;
+    int i = 1;
+    for (auto &task : todoList) {
+      std::cout << i++ << ". " << task << std::endl;
     }
   }
 }
