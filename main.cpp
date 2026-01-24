@@ -1,7 +1,8 @@
+#include <cctype>
 #include <iostream>
 #include <limits>
+#include <optional>
 #include <string>
-#include <variant>
 #include <vector>
 
 struct Task {
@@ -9,6 +10,7 @@ struct Task {
   bool done = false;
 };
 
+std::optional<int> parseInt(const std::string taskNum);
 int taskNumRequest();
 void add(std::vector<Task> &todoList, const std::string userInput);
 void list(const std::vector<Task> &todoList);
@@ -47,21 +49,29 @@ int main() {
     } else if (cmd == "list") {
       list(todoList);
     } else if (cmd == "done") {
-      int intFlag;
-      if (!flag.empty()) {
-        intFlag = std::stoi(flag);
+      std::optional<int> optInt = parseInt(flag);
+      if (!optInt) {
+        if (flag.empty()) {
+          done(todoList, 0);
+        } else {
+          std::cout << "Usage: done [num]\n";
+          continue;
+        }
       } else {
-        intFlag = 0;
+        done(todoList, *optInt);
       }
-      done(todoList, intFlag);
     } else if (cmd == "del") {
-      int intFlag;
-      if (!flag.empty()) {
-        intFlag = std::stoi(flag);
+      std::optional<int> optInt = parseInt(flag);
+      if (!optInt) {
+        if (flag.empty()) {
+          delTask(todoList, 0);
+        } else {
+          std::cout << "usage: del [num]\n";
+          continue;
+        }
       } else {
-        intFlag = 0;
+        delTask(todoList, *optInt);
       }
-      delTask(todoList, intFlag);
     } else {
       std::cout << "Unknown command: " << cmd << std::endl;
     }
@@ -108,7 +118,7 @@ void done(std::vector<Task> &todoList, const int userInput) {
     std::cout << "No such task";
     return;
   }
-  todoList[userInput - 1].done = true;
+  todoList[taskNum - 1].done = true;
 
   std::cout << std::endl;
 }
@@ -134,4 +144,19 @@ int taskNumRequest() {
   std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
 
   return taskNum;
+}
+std::optional<int> parseInt(const std::string taskNum) {
+
+  if (taskNum.empty()) {
+    return {};
+  }
+  for (const char &ch : taskNum) {
+    auto uc = static_cast<unsigned char>(ch);
+    if (!std::isdigit(uc)) {
+      return {};
+    }
+  }
+  int numToInt;
+  numToInt = std::stoi(taskNum);
+  return numToInt;
 }
