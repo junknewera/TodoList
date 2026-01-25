@@ -1,6 +1,5 @@
 #include <cctype>
 #include <iostream>
-#include <limits>
 #include <optional>
 #include <string>
 #include <vector>
@@ -11,7 +10,7 @@ struct Task {
 };
 
 std::optional<int> parseInt(const std::string taskNum);
-int taskNumRequest();
+std::optional<int> taskNumRequest();
 void add(std::vector<Task> &todoList, const std::string userInput);
 void list(const std::vector<Task> &todoList);
 void done(std::vector<Task> &todoList, const int userInput);
@@ -109,7 +108,13 @@ void list(const std::vector<Task> &todoList) {
 void done(std::vector<Task> &todoList, const int userInput) {
   int taskNum;
   if (!userInput) {
-    taskNum = taskNumRequest();
+    auto task = taskNumRequest();
+    if (!task) {
+      std::cout << "Error: not a number\n";
+      return;
+    } else {
+      taskNum = *task;
+    }
   } else {
     taskNum = userInput;
   }
@@ -125,7 +130,13 @@ void done(std::vector<Task> &todoList, const int userInput) {
 void delTask(std::vector<Task> &todoList, const int userInput) {
   int taskNum;
   if (!userInput) {
-    taskNum = taskNumRequest();
+    auto task = taskNumRequest();
+    if (!task) {
+      std::cout << "Error: not a number\n";
+      return;
+    } else {
+      taskNum = *task;
+    }
   } else {
     taskNum = userInput;
   }
@@ -137,13 +148,13 @@ void delTask(std::vector<Task> &todoList, const int userInput) {
 
   std::cout << std::endl;
 }
-int taskNumRequest() {
-  int taskNum;
-  std::cout << "Enter task number: ";
-  std::cin >> taskNum;
-  std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+std::optional<int> taskNumRequest() {
+  std::string taskNum;
 
-  return taskNum;
+  std::cout << "Enter task number: ";
+  std::getline(std::cin, taskNum);
+
+  return parseInt(taskNum);
 }
 std::optional<int> parseInt(const std::string taskNum) {
 
