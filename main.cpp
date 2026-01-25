@@ -3,18 +3,22 @@
 #include <optional>
 #include <string>
 #include <vector>
-
 struct Task {
   std::string text;
   bool done = false;
 };
 
+using TaskAction = bool (*)(std::vector<Task> &, int);
+
+enum class CmdResult { Ok, InvalidNumber, NoSuchTask };
+
 std::optional<int> parseInt(const std::string taskNum);
-std::optional<int> taskNumRequest();
 void add(std::vector<Task> &todoList, const std::string userInput);
 void list(const std::vector<Task> &todoList);
-void done(std::vector<Task> &todoList, const int userInput);
-void delTask(std::vector<Task> &todoList, const int userInput);
+bool done(std::vector<Task> &todoList, const int userInput);
+bool delTask(std::vector<Task> &todoList, const int userInput);
+CmdResult getCmdResult(std::vector<Task> &todoList, const std::string flag,
+                       TaskAction action);
 
 int main() {
   std::vector<Task> todoList{};
@@ -48,28 +52,44 @@ int main() {
     } else if (cmd == "list") {
       list(todoList);
     } else if (cmd == "done") {
-      std::optional<int> optInt = parseInt(flag);
-      if (!optInt) {
-        if (flag.empty()) {
-          done(todoList, 0);
-        } else {
-          std::cout << "Usage: done [num]\n";
-          continue;
-        }
+      std::string input;
+      CmdResult cmdRes;
+      if (flag.empty()) {
+        std::cout << "Enter task number: ";
+        std::getline(std::cin, input);
       } else {
-        done(todoList, *optInt);
+        input = flag;
+      }
+      cmdRes = getCmdResult(todoList, input, done);
+      switch (cmdRes) {
+      case CmdResult::Ok:
+        break;
+      case CmdResult::InvalidNumber:
+        std::cout << "Error: not a number\n";
+        break;
+      case CmdResult::NoSuchTask:
+        std::cout << "Error: no such task\n";
+        break;
       }
     } else if (cmd == "del") {
-      std::optional<int> optInt = parseInt(flag);
-      if (!optInt) {
-        if (flag.empty()) {
-          delTask(todoList, 0);
-        } else {
-          std::cout << "usage: del [num]\n";
-          continue;
-        }
+      std::string input;
+      CmdResult cmdRes;
+      if (flag.empty()) {
+        std::cout << "Enter task number: ";
+        std::getline(std::cin, input);
       } else {
-        delTask(todoList, *optInt);
+        input = flag;
+      }
+      cmdRes = getCmdResult(todoList, input, delTask);
+      switch (cmdRes) {
+      case CmdResult::Ok:
+        break;
+      case CmdResult::InvalidNumber:
+        std::cout << "Error: not a number\n";
+        break;
+      case CmdResult::NoSuchTask:
+        std::cout << "Error: no such task\n";
+        break;
       }
     } else {
       std::cout << "Unknown command: " << cmd << std::endl;
@@ -105,56 +125,19 @@ void list(const std::vector<Task> &todoList) {
     }
   }
 }
-void done(std::vector<Task> &todoList, const int userInput) {
-  int taskNum;
-  if (!userInput) {
-    auto task = taskNumRequest();
-    if (!task) {
-      std::cout << "Error: not a number\n";
-      return;
-    } else {
-      taskNum = *task;
-    }
-  } else {
-    taskNum = userInput;
+bool done(std::vector<Task> &todoList, const int userInput) {
+  if (userInput < 1 || static_cast<size_t>(userInput) > todoList.size()) {
+    return false;
   }
-
-  if (taskNum < 1 || static_cast<size_t>(taskNum) > todoList.size()) {
-    std::cout << "No such task";
-    return;
-  }
-  todoList[taskNum - 1].done = true;
-
-  std::cout << std::endl;
+  todoList[userInput - 1].done = true;
+  return true;
 }
-void delTask(std::vector<Task> &todoList, const int userInput) {
-  int taskNum;
-  if (!userInput) {
-    auto task = taskNumRequest();
-    if (!task) {
-      std::cout << "Error: not a number\n";
-      return;
-    } else {
-      taskNum = *task;
-    }
-  } else {
-    taskNum = userInput;
+bool delTask(std::vector<Task> &todoList, const int userInput) {
+  if (userInput < 1 || static_cast<size_t>(userInput) > todoList.size()) {
+    return false;
   }
-  if (taskNum < 1 || static_cast<size_t>(taskNum) > todoList.size()) {
-    std::cout << "No such task";
-    return;
-  }
-  todoList.erase(todoList.begin() + taskNum - 1);
-
-  std::cout << std::endl;
-}
-std::optional<int> taskNumRequest() {
-  std::string taskNum;
-
-  std::cout << "Enter task number: ";
-  std::getline(std::cin, taskNum);
-
-  return parseInt(taskNum);
+  todoList.erase(todoList.begin() + userInput - 1);
+  return true;
 }
 std::optional<int> parseInt(const std::string taskNum) {
 
@@ -170,4 +153,18 @@ std::optional<int> parseInt(const std::string taskNum) {
   int numToInt;
   numToInt = std::stoi(taskNum);
   return numToInt;
+}
+
+CmdResult getCmdResult(std::vector<Task> &todoList, const std::string flag,
+                       TaskAction action) {
+  std::optional<int> num = parseInt(flag);
+  if (!num) {
+    return CmdResult::InvalidNumber;
+  } else {
+    bool isCompleted = action(todoList, *num);
+    if (!isCompleted) {
+      return CmdResult::NoSuchTask;
+    }
+  }
+  return CmdResult::Ok;
 }
