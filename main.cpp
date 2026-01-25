@@ -1,4 +1,5 @@
 #include <cctype>
+#include <functional>
 #include <iostream>
 #include <optional>
 #include <string>
@@ -8,18 +9,20 @@ struct Task {
   bool done = false;
 };
 
-using TaskAction = bool (*)(std::vector<Task> &, int);
+using TaskAction = std::function<bool(std::vector<Task> &, int)>;
 
 enum class CmdResult { Ok, InvalidNumber, NoSuchTask };
 
-std::optional<int> parseInt(const std::string taskNum);
-void add(std::vector<Task> &todoList, const std::string userInput);
+std::string trim(const std::string &userInput);
+std::optional<int> parseInt(const std::string &taskNum);
+void add(std::vector<Task> &todoList, const std::string &userInput);
 void list(const std::vector<Task> &todoList);
 bool done(std::vector<Task> &todoList, const int userInput);
 bool delTask(std::vector<Task> &todoList, const int userInput);
-CmdResult getCmdResult(std::vector<Task> &todoList, const std::string flag,
+CmdResult getCmdResult(std::vector<Task> &todoList, const std::string &flag,
                        TaskAction action);
-
+void runIndexCommand(std::vector<Task> &todoList, const std::string &flag,
+                     TaskAction action);
 int main() {
   std::vector<Task> todoList{};
   std::string userInput;
@@ -38,10 +41,10 @@ int main() {
     std::getline(std::cin, userInput);
     auto split = userInput.find(' ');
     if (split != std::string::npos) {
-      cmd = userInput.substr(0, split);
-      flag = userInput.substr(split + 1, userInput.size());
+      cmd = trim(userInput.substr(0, split));
+      flag = trim(userInput.substr(split + 1, userInput.size()));
     } else {
-      cmd = userInput;
+      cmd = trim(userInput);
       flag.clear();
     }
 
@@ -52,45 +55,9 @@ int main() {
     } else if (cmd == "list") {
       list(todoList);
     } else if (cmd == "done") {
-      std::string input;
-      CmdResult cmdRes;
-      if (flag.empty()) {
-        std::cout << "Enter task number: ";
-        std::getline(std::cin, input);
-      } else {
-        input = flag;
-      }
-      cmdRes = getCmdResult(todoList, input, done);
-      switch (cmdRes) {
-      case CmdResult::Ok:
-        break;
-      case CmdResult::InvalidNumber:
-        std::cout << "Error: not a number\n";
-        break;
-      case CmdResult::NoSuchTask:
-        std::cout << "Error: no such task\n";
-        break;
-      }
+      runIndexCommand(todoList, flag, done);
     } else if (cmd == "del") {
-      std::string input;
-      CmdResult cmdRes;
-      if (flag.empty()) {
-        std::cout << "Enter task number: ";
-        std::getline(std::cin, input);
-      } else {
-        input = flag;
-      }
-      cmdRes = getCmdResult(todoList, input, delTask);
-      switch (cmdRes) {
-      case CmdResult::Ok:
-        break;
-      case CmdResult::InvalidNumber:
-        std::cout << "Error: not a number\n";
-        break;
-      case CmdResult::NoSuchTask:
-        std::cout << "Error: no such task\n";
-        break;
-      }
+      runIndexCommand(todoList, flag, delTask);
     } else {
       std::cout << "Unknown command: " << cmd << std::endl;
     }
@@ -98,7 +65,7 @@ int main() {
   }
 }
 
-void add(std::vector<Task> &todoList, const std::string userInput) {
+void add(std::vector<Task> &todoList, const std::string &userInput) {
   Task task;
   if (userInput.empty()) {
     std::cout << "Enter task name: ";
@@ -139,7 +106,7 @@ bool delTask(std::vector<Task> &todoList, const int userInput) {
   todoList.erase(todoList.begin() + userInput - 1);
   return true;
 }
-std::optional<int> parseInt(const std::string taskNum) {
+std::optional<int> parseInt(const std::string &taskNum) {
 
   if (taskNum.empty()) {
     return {};
@@ -155,7 +122,7 @@ std::optional<int> parseInt(const std::string taskNum) {
   return numToInt;
 }
 
-CmdResult getCmdResult(std::vector<Task> &todoList, const std::string flag,
+CmdResult getCmdResult(std::vector<Task> &todoList, const std::string &flag,
                        TaskAction action) {
   std::optional<int> num = parseInt(flag);
   if (!num) {
@@ -167,4 +134,35 @@ CmdResult getCmdResult(std::vector<Task> &todoList, const std::string flag,
     }
   }
   return CmdResult::Ok;
+}
+void runIndexCommand(std::vector<Task> &todoList, const std::string &flag,
+                     TaskAction action) {
+  std::string input;
+  CmdResult cmdRes;
+  if (flag.empty()) {
+    std::cout << "Enter task number: ";
+    std::getline(std::cin, input);
+  } else {
+    input = flag;
+  }
+  cmdRes = getCmdResult(todoList, input, action);
+  switch (cmdRes) {
+  case CmdResult::Ok:
+    break;
+  case CmdResult::InvalidNumber:
+    std::cout << "Error: not a number\n";
+    break;
+  case CmdResult::NoSuchTask:
+    std::cout << "Error: no such task\n";
+    break;
+  }
+}
+
+std::string trim(const std::string &userInput) {
+  const auto first = userInput.find_first_not_of(" \t");
+  if (first == std::string::npos) {
+    return "";
+  }
+  const auto last = userInput.find_last_not_of(" \t");
+  return userInput.substr(first, last - first + 1);
 }
