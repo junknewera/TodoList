@@ -1,34 +1,45 @@
 #include <charconv>
+#include <cstdint>
 #include <iostream>
 #include <optional>
 #include <string>
 #include <vector>
 
 struct Task {
+  uint64_t id;
   std::string text;
   bool done = false;
 };
+struct AppState {
+  std::vector<Task> tasks;
+  uint64_t next_id = 1;
+};
 enum class EditType { del, done };
-
 enum class CmdResult { Ok, InvalidNumber, NoSuchTask };
 struct ResultIndex {
   CmdResult code;
   size_t index = 0;
 };
+struct ResolvedId {
+  CmdResult code = CmdResult::InvalidNumber;
+  std::optional<uint64_t> id;
+};
 
+ResolvedId resolveIdFromUserNumber(const AppState &state,
+                                   const std::string &flag);
 std::string trim(const std::string &userInput);
-void add(std::vector<Task> &todoList, const std::string &userInput);
-void list(const std::vector<Task> &todoList);
-void edit(std::vector<Task> &todoList, const size_t index, const EditType type);
+void add(AppState &state, const std::string &userInput);
+void list(const AppState &state);
+CmdResult edit(AppState &state, uint64_t id, EditType type);
 ResultIndex parseIndex(const size_t listSize, const std::string &userInput);
-std::optional<size_t> runIndexCommand(const size_t size,
-                                      const std::string &flag);
+std::optional<size_t> findIndexById(const AppState &state, uint64_t id);
+void printError(const CmdResult &err);
 
 int main() {
-  std::vector<Task> todoList{};
   std::string userInput;
   std::string cmd;
   std::string flag;
+  AppState state;
 
   std::cout << "Todo List." << std::endl;
   while (true) {
@@ -52,19 +63,24 @@ int main() {
     if (cmd == "q") {
       break;
     } else if (cmd == "add") {
-      add(todoList, flag);
+      add(state, flag);
     } else if (cmd == "list") {
-      list(todoList);
+      list(state);
     } else if (cmd == "done") {
-      auto index = runIndexCommand(todoList.size(), flag);
-      if (index) {
-        edit(todoList, *index, EditType::done);
+      auto id = resolveIdFromUserNumber(state, flag);
+      if (id.code != CmdResult::Ok) {
+        printError(id.code);
+      } else {
+        printError(edit(state, *id.id, EditType::done));
       }
     } else if (cmd == "del") {
-      auto index = runIndexCommand(todoList.size(), flag);
-      if (index) {
-        edit(todoList, *index, EditType::del);
+      auto id = resolveIdFromUserNumber(state, flag);
+      if (id.code != CmdResult::Ok) {
+        printError(id.code);
+      } else {
+        printError(edit(state, *id.id, EditType::done));
       }
+
     } else {
       std::cout << "Unknown command: " << cmd << std::endl;
     }
@@ -72,8 +88,9 @@ int main() {
   }
 }
 
-void add(std::vector<Task> &todoList, const std::string &userInput) {
+void add(AppState &state, const std::string &userInput) {
   Task task;
+  task.id = state.next_id;
   if (userInput.empty()) {
     std::cout << "Enter task name: ";
     std::getline(std::cin, task.text);
@@ -86,53 +103,36 @@ void add(std::vector<Task> &todoList, const std::string &userInput) {
     task.text = userInput;
   }
 
-  todoList.push_back(task);
+  state.tasks.push_back(task);
+  state.next_id++;
 }
-void list(const std::vector<Task> &todoList) {
-  if (todoList.empty()) {
+void list(const AppState &state) {
+  if (state.tasks.empty()) {
     std::cout << "Todo List is empty!\n";
   } else {
     int i = 1;
-    for (const auto &task : todoList) {
-      std::cout << i++ << (task.done ? " 🗹 " : " ☐ ");
+    for (const auto &task : state.tasks) {
+      std::cout << i++ << " [id=" << task.id << "]"
+                << (task.done ? " 🗹 " : " ☐ ");
       std::cout << task.text << std::endl;
     }
   }
 }
 
-void edit(std::vector<Task> &todoList, const size_t index,
-          const EditType type) {
-
+CmdResult edit(AppState &state, uint64_t id, EditType type) {
+  auto index = findIndexById(state, id);
+  if (!index) {
+    return CmdResult::NoSuchTask;
+  }
   switch (type) {
   case EditType::done:
-    todoList[index].done = true;
+    state.tasks[*index].done = true;
     break;
   case EditType::del:
-    todoList.erase(todoList.begin() + index);
+    state.tasks.erase(state.tasks.begin() + *index);
     break;
   }
-}
-std::optional<size_t> runIndexCommand(const size_t size,
-                                      const std::string &flag) {
-  std::string input;
-  if (flag.empty()) {
-    std::cout << "Enter task number: ";
-    std::getline(std::cin, input);
-  } else {
-    input = flag;
-  }
-  ResultIndex index = parseIndex(size, input);
-  switch (index.code) {
-  case CmdResult::Ok:
-    return index.index;
-  case CmdResult::InvalidNumber:
-    std::cout << "Error: not a number\n";
-    break;
-  case CmdResult::NoSuchTask:
-    std::cout << "Error: no such task\n";
-    break;
-  }
-  return {};
+  return CmdResult::Ok;
 }
 ResultIndex parseIndex(const size_t listSize, const std::string &userInput) {
   ResultIndex index;
@@ -163,4 +163,52 @@ std::string trim(const std::string &userInput) {
   }
   const auto last = userInput.find_last_not_of(" \t");
   return userInput.substr(first, last - first + 1);
+}
+ResolvedId resolveIdFromUserNumber(const AppState &state,
+                                   const std::string &flag) {
+  ResolvedId resId;
+  std::string input;
+  if (flag.empty()) {
+    std::cout << "Enter task number: ";
+    std::getline(std::cin, input);
+  } else {
+    input = flag;
+  }
+  input = trim(input);
+  ResultIndex index = parseIndex(state.tasks.size(), input);
+  switch (index.code) {
+  case CmdResult::Ok:
+    resId.code = CmdResult::Ok;
+    resId.id = state.tasks[index.index].id;
+    return resId;
+  case CmdResult::InvalidNumber:
+    resId.code = CmdResult::InvalidNumber;
+    break;
+  case CmdResult::NoSuchTask:
+    resId.code = CmdResult::NoSuchTask;
+    break;
+  }
+  return resId;
+}
+std::optional<size_t> findIndexById(const AppState &state, uint64_t id) {
+  for (size_t i = 0; i < state.tasks.size(); i++) {
+    if (state.tasks[i].id == id) {
+      return i;
+    }
+  }
+  return {};
+}
+
+void printError(const CmdResult &err) {
+
+  switch (err) {
+  case CmdResult::Ok:
+    break;
+  case CmdResult::InvalidNumber:
+    std::cout << "Error: Invalid number\n";
+    break;
+  case CmdResult::NoSuchTask:
+    std::cout << "Error: No such task\n";
+    break;
+  }
 }
