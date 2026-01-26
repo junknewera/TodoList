@@ -1,28 +1,29 @@
-#include <cctype>
-#include <functional>
+#include <charconv>
 #include <iostream>
 #include <optional>
 #include <string>
 #include <vector>
+
 struct Task {
   std::string text;
   bool done = false;
 };
-
-using TaskAction = std::function<bool(std::vector<Task> &, int)>;
+enum class EditType { del, done };
 
 enum class CmdResult { Ok, InvalidNumber, NoSuchTask };
+struct ResultIndex {
+  CmdResult code;
+  size_t index = 0;
+};
 
 std::string trim(const std::string &userInput);
-std::optional<int> parseInt(const std::string &taskNum);
 void add(std::vector<Task> &todoList, const std::string &userInput);
 void list(const std::vector<Task> &todoList);
-bool done(std::vector<Task> &todoList, const int userInput);
-bool delTask(std::vector<Task> &todoList, const int userInput);
-CmdResult getCmdResult(std::vector<Task> &todoList, const std::string &flag,
-                       TaskAction action);
-void runIndexCommand(std::vector<Task> &todoList, const std::string &flag,
-                     TaskAction action);
+void edit(std::vector<Task> &todoList, const size_t index, const EditType type);
+ResultIndex parseIndex(const size_t listSize, const std::string &userInput);
+std::optional<size_t> runIndexCommand(const size_t size,
+                                      const std::string &flag);
+
 int main() {
   std::vector<Task> todoList{};
   std::string userInput;
@@ -55,9 +56,15 @@ int main() {
     } else if (cmd == "list") {
       list(todoList);
     } else if (cmd == "done") {
-      runIndexCommand(todoList, flag, done);
+      auto index = runIndexCommand(todoList.size(), flag);
+      if (index) {
+        edit(todoList, *index, EditType::done);
+      }
     } else if (cmd == "del") {
-      runIndexCommand(todoList, flag, delTask);
+      auto index = runIndexCommand(todoList.size(), flag);
+      if (index) {
+        edit(todoList, *index, EditType::del);
+      }
     } else {
       std::cout << "Unknown command: " << cmd << std::endl;
     }
@@ -92,63 +99,32 @@ void list(const std::vector<Task> &todoList) {
     }
   }
 }
-bool done(std::vector<Task> &todoList, const int userInput) {
-  if (userInput < 1 || static_cast<size_t>(userInput) > todoList.size()) {
-    return false;
-  }
-  todoList[userInput - 1].done = true;
-  return true;
-}
-bool delTask(std::vector<Task> &todoList, const int userInput) {
-  if (userInput < 1 || static_cast<size_t>(userInput) > todoList.size()) {
-    return false;
-  }
-  todoList.erase(todoList.begin() + userInput - 1);
-  return true;
-}
-std::optional<int> parseInt(const std::string &taskNum) {
 
-  if (taskNum.empty()) {
-    return {};
-  }
-  for (const char &ch : taskNum) {
-    auto uc = static_cast<unsigned char>(ch);
-    if (!std::isdigit(uc)) {
-      return {};
-    }
-  }
-  int numToInt;
-  numToInt = std::stoi(taskNum);
-  return numToInt;
-}
+void edit(std::vector<Task> &todoList, const size_t index,
+          const EditType type) {
 
-CmdResult getCmdResult(std::vector<Task> &todoList, const std::string &flag,
-                       TaskAction action) {
-  std::optional<int> num = parseInt(flag);
-  if (!num) {
-    return CmdResult::InvalidNumber;
-  } else {
-    bool isCompleted = action(todoList, *num);
-    if (!isCompleted) {
-      return CmdResult::NoSuchTask;
-    }
+  switch (type) {
+  case EditType::done:
+    todoList[index].done = true;
+    break;
+  case EditType::del:
+    todoList.erase(todoList.begin() + index);
+    break;
   }
-  return CmdResult::Ok;
 }
-void runIndexCommand(std::vector<Task> &todoList, const std::string &flag,
-                     TaskAction action) {
+std::optional<size_t> runIndexCommand(const size_t size,
+                                      const std::string &flag) {
   std::string input;
-  CmdResult cmdRes;
   if (flag.empty()) {
     std::cout << "Enter task number: ";
     std::getline(std::cin, input);
   } else {
     input = flag;
   }
-  cmdRes = getCmdResult(todoList, input, action);
-  switch (cmdRes) {
+  ResultIndex index = parseIndex(size, input);
+  switch (index.code) {
   case CmdResult::Ok:
-    break;
+    return index.index;
   case CmdResult::InvalidNumber:
     std::cout << "Error: not a number\n";
     break;
@@ -156,8 +132,30 @@ void runIndexCommand(std::vector<Task> &todoList, const std::string &flag,
     std::cout << "Error: no such task\n";
     break;
   }
+  return {};
 }
+ResultIndex parseIndex(const size_t listSize, const std::string &userInput) {
+  ResultIndex index;
+  if (userInput.empty()) {
+    index.code = CmdResult::InvalidNumber;
+    return index;
+  }
+  int num;
 
+  auto [ptr, err] = std::from_chars(userInput.data(),
+                                    userInput.data() + userInput.size(), num);
+  if (!(err == std::errc()) || !(userInput.data() + userInput.size() == ptr)) {
+    index.code = CmdResult::InvalidNumber;
+    return index;
+  }
+  if (num < 1 || static_cast<size_t>(num) > listSize) {
+    index.code = CmdResult::NoSuchTask;
+    return index;
+  }
+  index.code = CmdResult::Ok;
+  index.index = static_cast<size_t>(num - 1);
+  return index;
+}
 std::string trim(const std::string &userInput) {
   const auto first = userInput.find_first_not_of(" \t");
   if (first == std::string::npos) {
