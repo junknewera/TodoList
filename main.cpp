@@ -1,9 +1,15 @@
+#include "json.hpp"
+#include <algorithm>
 #include <charconv>
 #include <cstdint>
+#include <exception>
+#include <fstream>
 #include <iostream>
 #include <optional>
 #include <string>
 #include <vector>
+
+using json = nlohmann::json;
 
 struct Task {
   uint64_t id;
@@ -15,13 +21,13 @@ struct AppState {
   uint64_t next_id = 1;
 };
 enum class EditType { del, done };
-enum class CmdResult { Ok, InvalidNumber, NoSuchTask };
+enum class CustomError { Ok, InvalidNumber, NoSuchTask, ParseError, IoError };
 struct ResultIndex {
-  CmdResult code;
+  CustomError code;
   size_t index = 0;
 };
 struct ResolvedId {
-  CmdResult code = CmdResult::InvalidNumber;
+  CustomError code = CustomError::InvalidNumber;
   std::optional<uint64_t> id;
 };
 
@@ -30,16 +36,24 @@ ResolvedId resolveIdFromUserNumber(const AppState &state,
 std::string trim(const std::string &userInput);
 void add(AppState &state, const std::string &userInput);
 void list(const AppState &state);
-CmdResult edit(AppState &state, uint64_t id, EditType type);
+CustomError edit(AppState &state, uint64_t id, EditType type);
 ResultIndex parseIndex(const size_t listSize, const std::string &userInput);
 std::optional<size_t> findIndexById(const AppState &state, uint64_t id);
-void printError(const CmdResult &err);
+void printError(const CustomError &err);
+CustomError saveState(const AppState &state, const std::string &path);
+CustomError loadState(AppState &state, const std::string &path);
+void applyEditAndSave(AppState &state, const std::string &flag, EditType type,
+                      const std::string &path);
+[[noreturn]] inline void unreachable() { std::abort(); };
 
 int main() {
   std::string userInput;
   std::string cmd;
   std::string flag;
   AppState state;
+  std::string path = "todo.json";
+
+  printError(loadState(state, path));
 
   std::cout << "Todo List." << std::endl;
   while (true) {
@@ -64,23 +78,13 @@ int main() {
       break;
     } else if (cmd == "add") {
       add(state, flag);
+      printError(saveState(state, path));
     } else if (cmd == "list") {
       list(state);
     } else if (cmd == "done") {
-      auto id = resolveIdFromUserNumber(state, flag);
-      if (id.code != CmdResult::Ok) {
-        printError(id.code);
-      } else {
-        printError(edit(state, *id.id, EditType::done));
-      }
+      applyEditAndSave(state, flag, EditType::done, path);
     } else if (cmd == "del") {
-      auto id = resolveIdFromUserNumber(state, flag);
-      if (id.code != CmdResult::Ok) {
-        printError(id.code);
-      } else {
-        printError(edit(state, *id.id, EditType::done));
-      }
-
+      applyEditAndSave(state, flag, EditType::del, path);
     } else {
       std::cout << "Unknown command: " << cmd << std::endl;
     }
@@ -119,10 +123,10 @@ void list(const AppState &state) {
   }
 }
 
-CmdResult edit(AppState &state, uint64_t id, EditType type) {
+CustomError edit(AppState &state, uint64_t id, EditType type) {
   auto index = findIndexById(state, id);
   if (!index) {
-    return CmdResult::NoSuchTask;
+    return CustomError::NoSuchTask;
   }
   switch (type) {
   case EditType::done:
@@ -132,12 +136,12 @@ CmdResult edit(AppState &state, uint64_t id, EditType type) {
     state.tasks.erase(state.tasks.begin() + *index);
     break;
   }
-  return CmdResult::Ok;
+  return CustomError::Ok;
 }
 ResultIndex parseIndex(const size_t listSize, const std::string &userInput) {
   ResultIndex index;
   if (userInput.empty()) {
-    index.code = CmdResult::InvalidNumber;
+    index.code = CustomError::InvalidNumber;
     return index;
   }
   int num;
@@ -145,14 +149,14 @@ ResultIndex parseIndex(const size_t listSize, const std::string &userInput) {
   auto [ptr, err] = std::from_chars(userInput.data(),
                                     userInput.data() + userInput.size(), num);
   if (!(err == std::errc()) || !(userInput.data() + userInput.size() == ptr)) {
-    index.code = CmdResult::InvalidNumber;
+    index.code = CustomError::InvalidNumber;
     return index;
   }
   if (num < 1 || static_cast<size_t>(num) > listSize) {
-    index.code = CmdResult::NoSuchTask;
+    index.code = CustomError::NoSuchTask;
     return index;
   }
-  index.code = CmdResult::Ok;
+  index.code = CustomError::Ok;
   index.index = static_cast<size_t>(num - 1);
   return index;
 }
@@ -166,29 +170,18 @@ std::string trim(const std::string &userInput) {
 }
 ResolvedId resolveIdFromUserNumber(const AppState &state,
                                    const std::string &flag) {
-  ResolvedId resId;
-  std::string input;
+  std::string input = flag;
   if (flag.empty()) {
     std::cout << "Enter task number: ";
     std::getline(std::cin, input);
-  } else {
-    input = flag;
   }
   input = trim(input);
+
   ResultIndex index = parseIndex(state.tasks.size(), input);
-  switch (index.code) {
-  case CmdResult::Ok:
-    resId.code = CmdResult::Ok;
-    resId.id = state.tasks[index.index].id;
-    return resId;
-  case CmdResult::InvalidNumber:
-    resId.code = CmdResult::InvalidNumber;
-    break;
-  case CmdResult::NoSuchTask:
-    resId.code = CmdResult::NoSuchTask;
-    break;
+  if (index.code != CustomError::Ok) {
+    return {index.code, std::nullopt};
   }
-  return resId;
+  return {CustomError::Ok, state.tasks[index.index].id};
 }
 std::optional<size_t> findIndexById(const AppState &state, uint64_t id) {
   for (size_t i = 0; i < state.tasks.size(); i++) {
@@ -198,17 +191,82 @@ std::optional<size_t> findIndexById(const AppState &state, uint64_t id) {
   }
   return {};
 }
-
-void printError(const CmdResult &err) {
-
+void printError(const CustomError &err) {
   switch (err) {
-  case CmdResult::Ok:
-    break;
-  case CmdResult::InvalidNumber:
+  case CustomError::Ok:
+    return;
+  case CustomError::InvalidNumber:
     std::cout << "Error: Invalid number\n";
-    break;
-  case CmdResult::NoSuchTask:
+    return;
+  case CustomError::NoSuchTask:
     std::cout << "Error: No such task\n";
-    break;
+    return;
+  case CustomError::ParseError:
+    std::cout << "Error: Parse Error\n";
+    return;
+  case CustomError::IoError:
+    std::cout << "Error: Input/Output Error\n";
+    return;
+  }
+}
+CustomError saveState(const AppState &state, const std::string &path) {
+  json root;
+  root["next_id"] = state.next_id;
+  root["tasks"] = json::array();
+  for (auto &task : state.tasks) {
+    json t;
+    t["id"] = task.id;
+    t["text"] = task.text;
+    t["done"] = task.done;
+    root["tasks"].push_back(t);
+  }
+  std::ofstream file(path);
+  if (!file) {
+    return CustomError::IoError;
+  }
+  file << root.dump();
+  if (!file) {
+    return CustomError::IoError;
+  }
+  return CustomError::Ok;
+}
+CustomError loadState(AppState &state, const std::string &path) {
+  std::ifstream file(path);
+  json data;
+  state.tasks.clear();
+  uint64_t max = 0;
+
+  if (!file) {
+    return CustomError::Ok;
+  }
+  try {
+    file >> data;
+    data.at("next_id").get_to(state.next_id);
+    for (const auto &task : data.at("tasks")) {
+      Task t;
+      task.at("id").get_to(t.id);
+      max = std::max(max, t.id);
+      task.at("text").get_to(t.text);
+      task.at("done").get_to(t.done);
+      state.tasks.push_back(t);
+    }
+  } catch (const std::exception &e) {
+    return CustomError::ParseError;
+  }
+  state.next_id = std::max(state.next_id, max + 1);
+  return CustomError::Ok;
+}
+
+void applyEditAndSave(AppState &state, const std::string &flag, EditType type,
+                      const std::string &path) {
+  auto rid = resolveIdFromUserNumber(state, flag);
+  if (rid.code != CustomError::Ok) {
+    printError(rid.code);
+    return;
+  }
+  auto r = edit(state, rid.id.value(), type);
+  printError(r);
+  if (r == CustomError::Ok) {
+    printError(saveState(state, path));
   }
 }
