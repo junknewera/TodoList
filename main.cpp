@@ -35,7 +35,7 @@ ResolvedId resolveIdFromUserNumber(const AppState &state,
                                    const std::string &flag);
 std::string trim(const std::string &userInput);
 void add(AppState &state, const std::string &userInput);
-void list(const AppState &state);
+void ls(const AppState &state, const std::string &flag = "");
 CustomError edit(AppState &state, uint64_t id, EditType type);
 ResultIndex parseIndex(const size_t listSize, const std::string &userInput);
 std::optional<size_t> findIndexById(const AppState &state, uint64_t id);
@@ -59,7 +59,7 @@ int main() {
   while (true) {
     std::cout << "Enter one of the following:\n"
                  "add [task] - to add any task\n"
-                 "list - to check current tasks\n"
+                 "ls - to check current tasks\n"
                  "done [num] - to mark any task as done\n"
                  "del [num] - to remove any task\n"
                  "q - to quit\n";
@@ -79,8 +79,8 @@ int main() {
     } else if (cmd == "add") {
       add(state, flag);
       printError(saveState(state, path));
-    } else if (cmd == "list") {
-      list(state);
+    } else if (cmd == "ls") {
+      ls(state, flag);
     } else if (cmd == "done") {
       applyEditAndSave(state, flag, EditType::done, path);
     } else if (cmd == "del") {
@@ -110,19 +110,43 @@ void add(AppState &state, const std::string &userInput) {
   state.tasks.push_back(task);
   state.next_id++;
 }
-void list(const AppState &state) {
+void ls(const AppState &state, const std::string &flag) {
   if (state.tasks.empty()) {
     std::cout << "Todo List is empty!\n";
+    return;
+  }
+
+  std::vector<Task> tasksToShow;
+
+  if (flag == "-d" || flag == "--done") {
+    std::copy_if(state.tasks.begin(), state.tasks.end(),
+                 std::back_inserter(tasksToShow),
+                 [](const Task &task) { return task.done; });
+  } else if (flag == "-p" || flag == "--pending") {
+    std::copy_if(state.tasks.begin(), state.tasks.end(),
+                 std::back_inserter(tasksToShow),
+                 [](const Task &task) { return !task.done; });
   } else {
-    int i = 1;
-    for (const auto &task : state.tasks) {
-      std::cout << i++ << " [id=" << task.id << "]"
-                << (task.done ? " 🗹 " : " ☐ ");
-      std::cout << task.text << std::endl;
+    tasksToShow = state.tasks;
+  }
+
+  if (flag.find("-s") != std::string::npos ||
+      flag.find("--sort") != std::string::npos) {
+    if (flag.find("id") != std::string::npos) {
+      std::sort(tasksToShow.begin(), tasksToShow.end(),
+                [](const Task &i, const Task &j) { return i.id < j.id; });
+    } else if (flag.find("done") != std::string::npos) {
+      std::sort(tasksToShow.begin(), tasksToShow.end(),
+                [](const Task &i, const Task &j) { return i.done > j.done; });
     }
   }
+  int i = 1;
+  for (const auto &task : tasksToShow) {
+    std::cout << i++ << " [id=" << task.id << "]"
+              << (task.done ? " 🗹 " : " ☐ ");
+    std::cout << task.text << std::endl;
+  }
 }
-
 CustomError edit(AppState &state, uint64_t id, EditType type) {
   auto index = findIndexById(state, id);
   if (!index) {
@@ -184,12 +208,12 @@ ResolvedId resolveIdFromUserNumber(const AppState &state,
   return {CustomError::Ok, state.tasks[index.index].id};
 }
 std::optional<size_t> findIndexById(const AppState &state, uint64_t id) {
-  for (size_t i = 0; i < state.tasks.size(); i++) {
-    if (state.tasks[i].id == id) {
-      return i;
-    }
+  auto it = std::find_if(state.tasks.begin(), state.tasks.end(),
+                         [id](const Task &task) { return task.id == id; });
+  if (it == state.tasks.end()) {
+    return std::nullopt;
   }
-  return {};
+  return std::distance(state.tasks.begin(), it);
 }
 void printError(const CustomError &err) {
   switch (err) {
