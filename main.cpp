@@ -8,13 +8,23 @@
 #include <optional>
 #include <string>
 #include <vector>
-
 using json = nlohmann::json;
 
-struct Task {
-  uint64_t id;
-  std::string text;
-  bool done = false;
+class Task {
+private:
+  uint64_t id_;
+  std::string text_;
+  bool done_;
+
+public:
+  Task(uint64_t id, const std::string &text)
+      : id_(id), text_(text), done_(false) {}
+  Task(uint64_t id, const std::string &text, bool done)
+      : id_(id), text_(text), done_(done) {}
+  uint64_t getId() const { return id_; }
+  std::string getText() const { return text_; }
+  bool isDone() const { return done_; }
+  void markAsDone() { done_ = true; }
 };
 struct AppState {
   std::vector<Task> tasks;
@@ -44,7 +54,6 @@ CustomError saveState(const AppState &state, const std::string &path);
 CustomError loadState(AppState &state, const std::string &path);
 void applyEditAndSave(AppState &state, const std::string &flag, EditType type,
                       const std::string &path);
-[[noreturn]] inline void unreachable() { std::abort(); };
 
 int main() {
   std::string userInput;
@@ -93,21 +102,21 @@ int main() {
 }
 
 void add(AppState &state, const std::string &userInput) {
-  Task task;
-  task.id = state.next_id;
+  std::string text;
+  uint64_t nextId = state.next_id;
   if (userInput.empty()) {
     std::cout << "Enter task name: ";
-    std::getline(std::cin, task.text);
-    if (task.text.empty()) {
+    std::getline(std::cin, text);
+    if (text.empty()) {
       std::cout << "No task provided.\n";
       return;
     }
     std::cout << std::endl;
   } else {
-    task.text = userInput;
+    text = userInput;
   }
 
-  state.tasks.push_back(task);
+  state.tasks.push_back(Task(nextId, text));
   state.next_id++;
 }
 void ls(const AppState &state, const std::string &flag) {
@@ -121,11 +130,11 @@ void ls(const AppState &state, const std::string &flag) {
   if (flag == "-d" || flag == "--done") {
     std::copy_if(state.tasks.begin(), state.tasks.end(),
                  std::back_inserter(tasksToShow),
-                 [](const Task &task) { return task.done; });
+                 [](const Task &task) { return task.isDone(); });
   } else if (flag == "-p" || flag == "--pending") {
     std::copy_if(state.tasks.begin(), state.tasks.end(),
                  std::back_inserter(tasksToShow),
-                 [](const Task &task) { return !task.done; });
+                 [](const Task &task) { return !task.isDone(); });
   } else {
     tasksToShow = state.tasks;
   }
@@ -133,18 +142,20 @@ void ls(const AppState &state, const std::string &flag) {
   if (flag.find("-s") != std::string::npos ||
       flag.find("--sort") != std::string::npos) {
     if (flag.find("id") != std::string::npos) {
-      std::sort(tasksToShow.begin(), tasksToShow.end(),
-                [](const Task &i, const Task &j) { return i.id < j.id; });
+      std::sort(
+          tasksToShow.begin(), tasksToShow.end(),
+          [](const Task &i, const Task &j) { return i.getId() < j.getId(); });
     } else if (flag.find("done") != std::string::npos) {
-      std::sort(tasksToShow.begin(), tasksToShow.end(),
-                [](const Task &i, const Task &j) { return i.done > j.done; });
+      std::sort(
+          tasksToShow.begin(), tasksToShow.end(),
+          [](const Task &i, const Task &j) { return i.isDone() > j.isDone(); });
     }
   }
   int i = 1;
   for (const auto &task : tasksToShow) {
-    std::cout << i++ << " [id=" << task.id << "]"
-              << (task.done ? " 🗹 " : " ☐ ");
-    std::cout << task.text << std::endl;
+    std::cout << i++ << " [id=" << task.getId() << "]"
+              << (task.isDone() ? " 🗹 " : " ☐ ");
+    std::cout << task.getText() << std::endl;
   }
 }
 CustomError edit(AppState &state, uint64_t id, EditType type) {
@@ -154,7 +165,7 @@ CustomError edit(AppState &state, uint64_t id, EditType type) {
   }
   switch (type) {
   case EditType::done:
-    state.tasks[*index].done = true;
+    state.tasks[*index].markAsDone();
     break;
   case EditType::del:
     state.tasks.erase(state.tasks.begin() + *index);
@@ -205,11 +216,11 @@ ResolvedId resolveIdFromUserNumber(const AppState &state,
   if (index.code != CustomError::Ok) {
     return {index.code, std::nullopt};
   }
-  return {CustomError::Ok, state.tasks[index.index].id};
+  return {CustomError::Ok, state.tasks[index.index].getId()};
 }
 std::optional<size_t> findIndexById(const AppState &state, uint64_t id) {
   auto it = std::find_if(state.tasks.begin(), state.tasks.end(),
-                         [id](const Task &task) { return task.id == id; });
+                         [id](const Task &task) { return task.getId() == id; });
   if (it == state.tasks.end()) {
     return std::nullopt;
   }
@@ -239,9 +250,9 @@ CustomError saveState(const AppState &state, const std::string &path) {
   root["tasks"] = json::array();
   for (auto &task : state.tasks) {
     json t;
-    t["id"] = task.id;
-    t["text"] = task.text;
-    t["done"] = task.done;
+    t["id"] = task.getId();
+    t["text"] = task.getText();
+    t["done"] = task.isDone();
     root["tasks"].push_back(t);
   }
   std::ofstream file(path);
@@ -267,12 +278,11 @@ CustomError loadState(AppState &state, const std::string &path) {
     file >> data;
     data.at("next_id").get_to(state.next_id);
     for (const auto &task : data.at("tasks")) {
-      Task t;
-      task.at("id").get_to(t.id);
-      max = std::max(max, t.id);
-      task.at("text").get_to(t.text);
-      task.at("done").get_to(t.done);
-      state.tasks.push_back(t);
+      uint64_t id = task.at("id").get<uint64_t>();
+      max = std::max(max, id);
+      const std::string text = task.at("text").get<const std::string>();
+      bool done = task.at("done").get<bool>();
+      state.tasks.push_back(Task(id, text, done));
     }
   } catch (const std::exception &e) {
     return CustomError::ParseError;
