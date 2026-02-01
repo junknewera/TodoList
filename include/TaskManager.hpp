@@ -1,7 +1,11 @@
 #pragma once
-#include "../json.hpp"
+#include "Command.hpp"
 #include "Task.hpp"
+#include "json.hpp"
+#include <cstdint>
+#include <memory>
 #include <optional>
+#include <stack>
 #include <string>
 #include <vector>
 using json = nlohmann::json;
@@ -20,16 +24,25 @@ private:
   std::vector<Task> tasks_;
   uint64_t nextId_;
   std::string filePath_;
+  std::stack<std::unique_ptr<Command>> stack_;
 
 public:
   TaskManager(const std::string &filePath);
+  ~TaskManager();
 
-  void add(const std::string &text);
+  std::optional<uint64_t> add(const std::string &text);
+  std::optional<uint64_t> addTask(const Task &task);
   void ls(const std::string &flag = "") const;
   CustomError save(const std::string &path);
   CustomError remove(const std::string &flag);
+  std::optional<uint64_t> removeById(uint64_t id);
   CustomError markDone(const std::string &flag);
   void printHelp() const;
+  CustomError executeCommand(std::unique_ptr<Command> command);
+  std::optional<bool> getTaskDoneStatus(const std::string &flag);
+  CustomError setTaskDone(const std::string &flag, bool done);
+  std::optional<Task> removeTask(const std::string &flag);
+  void undo();
 
 private:
   CustomError load();
