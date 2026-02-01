@@ -1,5 +1,7 @@
+#include "../include/Command.hpp"
 #include "../include/TaskManager.hpp"
 #include <iostream>
+#include <memory>
 #include <string>
 
 void printError(const CustomError &err);
@@ -30,16 +32,22 @@ int main() {
     } else if (cmd == "help") {
       manager.printHelp();
     } else if (cmd == "add") {
-      manager.add(flag);
+      auto command = std::make_unique<AddCommand>(&manager, flag);
+      manager.executeCommand(std::move(command));
       printError(manager.save(path));
+    } else if (cmd == "undo") {
+      manager.undo();
+      manager.save(path);
     } else if (cmd == "ls") {
       manager.ls(flag);
     } else if (cmd == "done") {
-      printError(manager.markDone(flag));
-      manager.save(path);
+      auto command = std::make_unique<DoneCommand>(&manager, flag);
+      printError(manager.executeCommand(std::move(command)));
+      printError(manager.save(path));
     } else if (cmd == "del") {
-      printError(manager.remove(flag));
-      manager.save(path);
+      auto command = std::make_unique<DelCommand>(&manager, flag);
+      printError(manager.executeCommand(std::move(command)));
+      printError(manager.save(path));
     } else {
       std::cout << "Unknown command: " << cmd << std::endl;
     }
