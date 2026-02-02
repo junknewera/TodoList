@@ -14,4 +14,4 @@ make clean
 ```
 
 ### Run todo app
-./make
+./main
