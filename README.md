@@ -3,15 +3,15 @@ Todo list on C++
 
 ## Usage
 
+### Compile todo app 
 ```
-make --compile todo app
-```
-
-```
-make clean --clean .o files
+make
 ```
 
+### Clean object files
 ```
+make clean
 ```
-```
-```
+
+### Run todo app
+./make

@@ -3,10 +3,10 @@
 #include <cstdint>
 #include <optional>
 
-AddCommand::AddCommand(TaskManager *manager, const std::string &text)
+AddCommand::AddCommand(TaskManager &manager, const std::string &text)
     : manager_(manager), text_(text) {}
 CustomError AddCommand::execute() {
-  std::optional<uint64_t> id = manager_->add(text_);
+  std::optional<uint64_t> id = manager_.add(text_);
   if (id) {
     id_ = *id;
     return CustomError::Ok;
@@ -14,17 +14,17 @@ CustomError AddCommand::execute() {
   return CustomError::InvalidNumber;
 }
 CustomError AddCommand::undo() {
-  auto isOk = manager_->removeById(id_);
+  auto isOk = manager_.removeById(id_);
   if (isOk) {
     return CustomError::Ok;
   }
   return CustomError::NoSuchTask;
 }
 
-EditCommand::EditCommand(TaskManager *manager, const std::string &text)
+EditCommand::EditCommand(TaskManager &manager, const std::string &text)
     : manager_(manager), text_(text) {}
 CustomError EditCommand::execute() {
-  auto pair = manager_->editTask(text_);
+  auto pair = manager_.editTask(text_);
   if (pair.first && pair.second) {
     idx_ = *pair.first;
     previousText_ = *pair.second;
@@ -33,7 +33,7 @@ CustomError EditCommand::execute() {
   return CustomError::InvalidNumber;
 }
 CustomError EditCommand::undo() {
-  auto pair = manager_->editTask(previousText_, idx_);
+  auto pair = manager_.editTask(previousText_, idx_);
   if (pair.first && pair.second) {
     idx_ = *pair.first;
     previousText_ = *pair.second;
@@ -42,39 +42,39 @@ CustomError EditCommand::undo() {
   return CustomError::InvalidNumber;
 }
 
-DoneCommand::DoneCommand(TaskManager *manager, const std::string &text)
+DoneCommand::DoneCommand(TaskManager &manager, const std::string &text)
     : manager_(manager), text_(text) {}
 CustomError DoneCommand::execute() {
-  std::optional<bool> isDone = manager_->getTaskDoneStatus(text_);
+  std::optional<bool> isDone = manager_.getTaskDoneStatus(text_);
   if (isDone == std::nullopt) {
     return CustomError::NoSuchTask;
   }
   previousDone_ = *isDone;
-  return manager_->setTaskDone(text_, true);
+  return manager_.setTaskDone(text_, true);
 }
 CustomError DoneCommand::undo() {
-  return manager_->setTaskDone(text_, previousDone_);
+  return manager_.setTaskDone(text_, previousDone_);
 }
 
-UndoneCommand::UndoneCommand(TaskManager *manager, const std::string &text)
+UndoneCommand::UndoneCommand(TaskManager &manager, const std::string &text)
     : manager_(manager), text_(text) {}
 CustomError UndoneCommand::execute() {
-  std::optional<bool> isDone = manager_->getTaskDoneStatus(text_);
+  std::optional<bool> isDone = manager_.getTaskDoneStatus(text_);
   if (isDone == std::nullopt) {
     return CustomError::NoSuchTask;
   }
   previousDone_ = *isDone;
-  return manager_->setTaskDone(text_, false);
+  return manager_.setTaskDone(text_, false);
 }
 CustomError UndoneCommand::undo() {
-  return manager_->setTaskDone(text_, previousDone_);
+  return manager_.setTaskDone(text_, previousDone_);
 }
 
-DelCommand::DelCommand(TaskManager *manager, const std::string &text)
+DelCommand::DelCommand(TaskManager &manager, const std::string &text)
     : manager_(manager), text_(text), task_(Task(0, "")) {}
 CustomError DelCommand::execute() {
   std::pair<std::optional<Task>, std::optional<size_t>> pair =
-      manager_->removeTask(text_);
+      manager_.removeTask(text_);
   if (pair.first && pair.second) {
     task_ = *pair.first;
     index_ = *pair.second;
@@ -83,20 +83,20 @@ CustomError DelCommand::execute() {
   return CustomError::NoSuchTask;
 }
 CustomError DelCommand::undo() {
-  auto isOk = manager_->insertByIndex(task_, index_);
+  auto isOk = manager_.insertByIndex(task_, index_);
   if (isOk) {
     return CustomError::Ok;
   }
   return CustomError::NoSuchTask;
 }
 
-ClearCommand::ClearCommand(TaskManager *manager)
+ClearCommand::ClearCommand(TaskManager &manager)
     : manager_(manager), previousTasks_({}) {}
 CustomError ClearCommand::execute() {
-  previousTasks_ = manager_->clearTasks();
+  previousTasks_ = manager_.clearTasks();
   return CustomError::Ok;
 }
 CustomError ClearCommand::undo() {
-  manager_->loadTasks(previousTasks_);
+  manager_.loadTasks(previousTasks_);
   return CustomError::Ok;
 }
