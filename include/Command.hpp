@@ -40,6 +40,7 @@ private:
   TaskManager *manager_;
   Task task_;
   std::string text_;
+  size_t index_;
 
 public:
   DelCommand(TaskManager *manager, const std::string &text);

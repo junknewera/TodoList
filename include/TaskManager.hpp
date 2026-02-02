@@ -31,7 +31,7 @@ public:
   ~TaskManager();
 
   std::optional<uint64_t> add(const std::string &text);
-  std::optional<uint64_t> addTask(const Task &task);
+  std::optional<uint64_t> insertByIndex(const Task &task, size_t index);
   void ls(const std::string &flag = "") const;
   CustomError save(const std::string &path);
   CustomError remove(const std::string &flag);
@@ -41,7 +41,8 @@ public:
   CustomError executeCommand(std::unique_ptr<Command> command);
   std::optional<bool> getTaskDoneStatus(const std::string &flag);
   CustomError setTaskDone(const std::string &flag, bool done);
-  std::optional<Task> removeTask(const std::string &flag);
+  std::pair<std::optional<Task>, std::optional<size_t>>
+  removeTask(const std::string &flag);
   void undo();
 
 private:
