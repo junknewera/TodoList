@@ -19,6 +19,7 @@ public:
        const Priority &priority, bool done);
   uint64_t getId() const { return id_; }
   std::string getText() const { return text_; }
+  void changeText(const std::string &text) { text_ = text; }
   std::string getCategory() const { return category_; }
   Priority getPriority() const { return priority_; }
   std::string getPriorityString() const;

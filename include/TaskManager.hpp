@@ -37,13 +37,18 @@ public:
   CustomError remove(const std::string &flag);
   std::optional<uint64_t> removeById(uint64_t id);
   CustomError markDone(const std::string &flag);
+  CustomError undone(const std::string &flag);
   void printHelp() const;
   CustomError executeCommand(std::unique_ptr<Command> command);
   std::optional<bool> getTaskDoneStatus(const std::string &flag);
   CustomError setTaskDone(const std::string &flag, bool done);
   std::pair<std::optional<Task>, std::optional<size_t>>
   removeTask(const std::string &flag);
+  std::pair<std::optional<size_t>, std::optional<std::string>>
+  editTask(const std::string &text, size_t idx = std::string::npos);
   void undo();
+  std::vector<Task> clearTasks();
+  void loadTasks(std::vector<Task> &tasks);
 
 private:
   CustomError load();

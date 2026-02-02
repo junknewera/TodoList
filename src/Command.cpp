@@ -21,6 +21,27 @@ CustomError AddCommand::undo() {
   return CustomError::NoSuchTask;
 }
 
+EditCommand::EditCommand(TaskManager *manager, const std::string &text)
+    : manager_(manager), text_(text) {}
+CustomError EditCommand::execute() {
+  auto pair = manager_->editTask(text_);
+  if (pair.first && pair.second) {
+    idx_ = *pair.first;
+    previousText_ = *pair.second;
+    return CustomError::Ok;
+  }
+  return CustomError::InvalidNumber;
+}
+CustomError EditCommand::undo() {
+  auto pair = manager_->editTask(previousText_, idx_);
+  if (pair.first && pair.second) {
+    idx_ = *pair.first;
+    previousText_ = *pair.second;
+    return CustomError::Ok;
+  }
+  return CustomError::InvalidNumber;
+}
+
 DoneCommand::DoneCommand(TaskManager *manager, const std::string &text)
     : manager_(manager), text_(text) {}
 CustomError DoneCommand::execute() {
@@ -29,9 +50,23 @@ CustomError DoneCommand::execute() {
     return CustomError::NoSuchTask;
   }
   previousDone_ = *isDone;
-  return manager_->setTaskDone(text_, !*isDone);
+  return manager_->setTaskDone(text_, true);
 }
 CustomError DoneCommand::undo() {
+  return manager_->setTaskDone(text_, previousDone_);
+}
+
+UndoneCommand::UndoneCommand(TaskManager *manager, const std::string &text)
+    : manager_(manager), text_(text) {}
+CustomError UndoneCommand::execute() {
+  std::optional<bool> isDone = manager_->getTaskDoneStatus(text_);
+  if (isDone == std::nullopt) {
+    return CustomError::NoSuchTask;
+  }
+  previousDone_ = *isDone;
+  return manager_->setTaskDone(text_, false);
+}
+CustomError UndoneCommand::undo() {
   return manager_->setTaskDone(text_, previousDone_);
 }
 
@@ -53,4 +88,15 @@ CustomError DelCommand::undo() {
     return CustomError::Ok;
   }
   return CustomError::NoSuchTask;
+}
+
+ClearCommand::ClearCommand(TaskManager *manager)
+    : manager_(manager), previousTasks_({}) {}
+CustomError ClearCommand::execute() {
+  previousTasks_ = manager_->clearTasks();
+  return CustomError::Ok;
+}
+CustomError ClearCommand::undo() {
+  manager_->loadTasks(previousTasks_);
+  return CustomError::Ok;
 }

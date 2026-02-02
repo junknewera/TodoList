@@ -2,6 +2,7 @@
 #include "Task.hpp"
 #include <cstdint>
 #include <string>
+#include <vector>
 
 enum class CustomError;
 class TaskManager;
@@ -24,6 +25,18 @@ public:
   CustomError execute() override;
   CustomError undo() override;
 };
+class EditCommand : public Command {
+private:
+  TaskManager *manager_;
+  size_t idx_;
+  std::string text_;
+  std::string previousText_;
+
+public:
+  EditCommand(TaskManager *manager, const std::string &text);
+  CustomError execute() override;
+  CustomError undo() override;
+};
 class DoneCommand : public Command {
 private:
   TaskManager *manager_;
@@ -32,6 +45,17 @@ private:
 
 public:
   DoneCommand(TaskManager *manager, const std::string &text);
+  CustomError execute() override;
+  CustomError undo() override;
+};
+class UndoneCommand : public Command {
+private:
+  TaskManager *manager_;
+  const std::string text_;
+  bool previousDone_;
+
+public:
+  UndoneCommand(TaskManager *manager, const std::string &text);
   CustomError execute() override;
   CustomError undo() override;
 };
@@ -44,6 +68,16 @@ private:
 
 public:
   DelCommand(TaskManager *manager, const std::string &text);
+  CustomError execute() override;
+  CustomError undo() override;
+};
+class ClearCommand : public Command {
+private:
+  TaskManager *manager_;
+  std::vector<Task> previousTasks_;
+
+public:
+  ClearCommand(TaskManager *manager);
   CustomError execute() override;
   CustomError undo() override;
 };

@@ -35,6 +35,10 @@ int main() {
       auto command = std::make_unique<AddCommand>(&manager, flag);
       manager.executeCommand(std::move(command));
       printError(manager.save(path));
+    } else if (cmd == "edit") {
+      auto command = std::make_unique<EditCommand>(&manager, flag);
+      manager.executeCommand(std::move(command));
+      printError(manager.save(path));
     } else if (cmd == "undo") {
       manager.undo();
       manager.save(path);
@@ -44,8 +48,16 @@ int main() {
       auto command = std::make_unique<DoneCommand>(&manager, flag);
       printError(manager.executeCommand(std::move(command)));
       printError(manager.save(path));
+    } else if (cmd == "undone") {
+      auto command = std::make_unique<UndoneCommand>(&manager, flag);
+      printError(manager.executeCommand(std::move(command)));
+      printError(manager.save(path));
     } else if (cmd == "del") {
       auto command = std::make_unique<DelCommand>(&manager, flag);
+      printError(manager.executeCommand(std::move(command)));
+      printError(manager.save(path));
+    } else if (cmd == "clear") {
+      auto command = std::make_unique<ClearCommand>(&manager);
       printError(manager.executeCommand(std::move(command)));
       printError(manager.save(path));
     } else {
