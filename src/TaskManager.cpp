@@ -103,9 +103,10 @@ std::optional<uint64_t> TaskManager::add(const std::string &text) {
   }
   return nextId_++;
 }
-std::optional<uint64_t> TaskManager::addTask(const Task &task) {
-  if (task.getId() != 0) {
-    tasks_.push_back(task);
+std::optional<uint64_t> TaskManager::insertByIndex(const Task &task,
+                                                   size_t index) {
+  if (index <= tasks_.size()) {
+    tasks_.insert(tasks_.begin() + index, task);
     return task.getId();
   }
   return {};
@@ -229,7 +230,8 @@ CustomError TaskManager::remove(const std::string &flag) {
   tasks_.erase(tasks_.begin() + *index);
   return CustomError::Ok;
 }
-std::optional<Task> TaskManager::removeTask(const std::string &flag) {
+std::pair<std::optional<Task>, std::optional<size_t>>
+TaskManager::removeTask(const std::string &flag) {
   ResolvedId rid = resolveIdFromUserNumber(flag);
   if (rid.code != CustomError::Ok) {
     return {};
@@ -241,7 +243,7 @@ std::optional<Task> TaskManager::removeTask(const std::string &flag) {
   }
   Task taskToReturn = tasks_[*index];
   tasks_.erase(tasks_.begin() + *index);
-  return taskToReturn;
+  return {taskToReturn, index};
 }
 CustomError TaskManager::markDone(const std::string &flag) {
   ResolvedId rid = resolveIdFromUserNumber(flag);

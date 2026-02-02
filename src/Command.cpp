@@ -38,15 +38,17 @@ CustomError DoneCommand::undo() {
 DelCommand::DelCommand(TaskManager *manager, const std::string &text)
     : manager_(manager), text_(text), task_(Task(0, "")) {}
 CustomError DelCommand::execute() {
-  auto task = manager_->removeTask(text_);
-  if (task) {
-    task_ = *task;
+  std::pair<std::optional<Task>, std::optional<size_t>> pair =
+      manager_->removeTask(text_);
+  if (pair.first && pair.second) {
+    task_ = *pair.first;
+    index_ = *pair.second;
     return CustomError::Ok;
   }
   return CustomError::NoSuchTask;
 }
 CustomError DelCommand::undo() {
-  auto isOk = manager_->addTask(task_);
+  auto isOk = manager_->insertByIndex(task_, index_);
   if (isOk) {
     return CustomError::Ok;
   }
