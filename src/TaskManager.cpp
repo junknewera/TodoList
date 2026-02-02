@@ -261,7 +261,7 @@ void TaskManager::ls(const std::string &flag) const {
     std::cout << task.getText() << std::endl;
   }
 };
-CustomError TaskManager::save(const std::string &path) {
+CustomError TaskManager::save(const std::string &path) const {
   json root;
   root["next_id"] = nextId_;
   root["tasks"] = json::array();
@@ -338,7 +338,8 @@ CustomError TaskManager::undone(const std::string &flag) {
   tasks_[*index].markAsDone(false);
   return CustomError::Ok;
 }
-std::optional<bool> TaskManager::getTaskDoneStatus(const std::string &flag) {
+std::optional<bool>
+TaskManager::getTaskDoneStatus(const std::string &flag) const {
   ResolvedId rid = resolveIdFromUserNumber(flag);
   if (rid.code != CustomError::Ok) {
     return {};
@@ -379,6 +380,7 @@ edit <id> <new_text>
 
 ls [options]
     -s, --sort <id|done|priority>   Sort tasks
+    -f, --find <text>               Search tasks by text
     -p, --pending                   Show only pending tasks
     -d, --done                      Show only completed tasks
     -l, --low                       Show only low priority tasks
@@ -439,7 +441,7 @@ std::optional<size_t> TaskManager::findIndexById(uint64_t id) const {
   }
   return std::distance(tasks_.begin(), it);
 }
-ResolvedId TaskManager::resolveIdFromUserNumber(const std::string &flag) {
+ResolvedId TaskManager::resolveIdFromUserNumber(const std::string &flag) const {
   std::string input = flag;
   if (flag.empty()) {
     std::cout << "Enter task number: ";
@@ -453,7 +455,7 @@ ResolvedId TaskManager::resolveIdFromUserNumber(const std::string &flag) {
   }
   return {CustomError::Ok, tasks_[index.index].getId()};
 }
-ResultIndex TaskManager::parseIndex(const std::string &userInput) {
+ResultIndex TaskManager::parseIndex(const std::string &userInput) const {
   ResultIndex index;
   if (userInput.empty()) {
     index.code = CustomError::InvalidNumber;

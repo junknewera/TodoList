@@ -32,11 +32,11 @@ int main() {
     } else if (cmd == "help") {
       manager.printHelp();
     } else if (cmd == "add") {
-      auto command = std::make_unique<AddCommand>(&manager, flag);
+      auto command = std::make_unique<AddCommand>(manager, flag);
       manager.executeCommand(std::move(command));
       printError(manager.save(path));
     } else if (cmd == "edit") {
-      auto command = std::make_unique<EditCommand>(&manager, flag);
+      auto command = std::make_unique<EditCommand>(manager, flag);
       manager.executeCommand(std::move(command));
       printError(manager.save(path));
     } else if (cmd == "undo") {
@@ -45,19 +45,19 @@ int main() {
     } else if (cmd == "ls") {
       manager.ls(flag);
     } else if (cmd == "done") {
-      auto command = std::make_unique<DoneCommand>(&manager, flag);
+      auto command = std::make_unique<DoneCommand>(manager, flag);
       printError(manager.executeCommand(std::move(command)));
       printError(manager.save(path));
     } else if (cmd == "undone") {
-      auto command = std::make_unique<UndoneCommand>(&manager, flag);
+      auto command = std::make_unique<UndoneCommand>(manager, flag);
       printError(manager.executeCommand(std::move(command)));
       printError(manager.save(path));
     } else if (cmd == "del") {
-      auto command = std::make_unique<DelCommand>(&manager, flag);
+      auto command = std::make_unique<DelCommand>(manager, flag);
       printError(manager.executeCommand(std::move(command)));
       printError(manager.save(path));
     } else if (cmd == "clear") {
-      auto command = std::make_unique<ClearCommand>(&manager);
+      auto command = std::make_unique<ClearCommand>(manager);
       printError(manager.executeCommand(std::move(command)));
       printError(manager.save(path));
     } else {

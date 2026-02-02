@@ -33,14 +33,14 @@ public:
   std::optional<uint64_t> add(const std::string &text);
   std::optional<uint64_t> insertByIndex(const Task &task, size_t index);
   void ls(const std::string &flag = "") const;
-  CustomError save(const std::string &path);
+  CustomError save(const std::string &path) const;
   CustomError remove(const std::string &flag);
   std::optional<uint64_t> removeById(uint64_t id);
   CustomError markDone(const std::string &flag);
   CustomError undone(const std::string &flag);
   void printHelp() const;
   CustomError executeCommand(std::unique_ptr<Command> command);
-  std::optional<bool> getTaskDoneStatus(const std::string &flag);
+  std::optional<bool> getTaskDoneStatus(const std::string &flag) const;
   CustomError setTaskDone(const std::string &flag, bool done);
   std::pair<std::optional<Task>, std::optional<size_t>>
   removeTask(const std::string &flag);
@@ -53,6 +53,6 @@ public:
 private:
   CustomError load();
   std::optional<size_t> findIndexById(uint64_t id) const;
-  ResolvedId resolveIdFromUserNumber(const std::string &flag);
-  ResultIndex parseIndex(const std::string &userInput);
+  ResolvedId resolveIdFromUserNumber(const std::string &flag) const;
+  ResultIndex parseIndex(const std::string &userInput) const;
 };
