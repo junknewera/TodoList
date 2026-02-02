@@ -1,4 +1,5 @@
 #include "../include/TaskManager.hpp"
+#include "../include/Color.hpp"
 #include <algorithm>
 #include <charconv>
 #include <cstddef>
@@ -8,6 +9,7 @@
 #include <iterator>
 #include <memory>
 #include <optional>
+#include <vector>
 
 std::string stringToLower(const std::string &text) {
   std::string lowerText(text.size(), '\0');
@@ -103,6 +105,45 @@ std::optional<uint64_t> TaskManager::add(const std::string &text) {
   }
   return nextId_++;
 }
+std::pair<std::optional<size_t>, std::optional<std::string>>
+TaskManager::editTask(const std::string &text, size_t idx) {
+  std::string taskText;
+  std::string previousText;
+  std::string taskId;
+  std::string flag;
+  if (idx != std::string::npos) {
+    tasks_[idx].changeText(text);
+    return {{idx}, {text}};
+  }
+  if (text.empty()) {
+    std::cout << "Enter task name: ";
+    std::getline(std::cin, taskText);
+    if (taskText.empty()) {
+      return {{}, {}};
+    }
+    std::cout << std::endl;
+  } else {
+    taskText = text;
+  }
+  auto split = taskText.find(' ');
+  if (split != std::string::npos) {
+    taskId = trim(taskText.substr(0, split));
+    flag = trim(taskText.substr(split + 1, taskText.size()));
+  } else {
+    return {{}, {}};
+  }
+  ResolvedId rid = resolveIdFromUserNumber(taskId);
+  if (rid.code != CustomError::Ok) {
+    return {{}, {}};
+  }
+  auto index = findIndexById(*rid.id);
+  if (!index) {
+    return {{}, {}};
+  }
+  previousText = tasks_[*index].getText();
+  tasks_[*index].changeText(flag);
+  return {index, previousText};
+}
 std::optional<uint64_t> TaskManager::insertByIndex(const Task &task,
                                                    size_t index) {
   if (index <= tasks_.size()) {
@@ -111,7 +152,15 @@ std::optional<uint64_t> TaskManager::insertByIndex(const Task &task,
   }
   return {};
 }
-
+std::vector<Task> TaskManager::clearTasks() {
+  std::vector<Task> tasksCopy = std::move(tasks_);
+  tasks_.clear();
+  return tasksCopy;
+}
+void TaskManager::loadTasks(std::vector<Task> &tasks) {
+  tasks_ = std::move(tasks);
+  tasks.clear();
+}
 std::optional<uint64_t> TaskManager::removeById(uint64_t id) {
   std::optional<size_t> index = findIndexById(id);
   if (index) {
@@ -189,8 +238,26 @@ void TaskManager::ls(const std::string &flag) const {
 
   for (const auto &task : tasksToShow) {
     std::cout << i++ << " [id=" << task.getId() << "]" << " ["
-              << task.getCategory() << "] " << "[" << task.getPriorityString()
-              << "] " << (task.isDone() ? " 🗹 " : " ☐ ");
+              << task.getCategory() << "] " << "[";
+    std::string color;
+    Priority priority = task.getPriority();
+    switch (priority) {
+    case Priority::low:
+      color = "32";
+      break;
+    case Priority::medium:
+      color = "33";
+      break;
+    case Priority::high:
+      color = "31";
+      break;
+    }
+    {
+      Color colorText(std::cout, color);
+      std::cout << task.getPriorityString();
+    }
+
+    std::cout << "] " << (task.isDone() ? " 🗹 " : " ☐ ");
     std::cout << task.getText() << std::endl;
   }
 };
@@ -258,6 +325,19 @@ CustomError TaskManager::markDone(const std::string &flag) {
   tasks_[*index].markAsDone(true);
   return CustomError::Ok;
 }
+CustomError TaskManager::undone(const std::string &flag) {
+  ResolvedId rid = resolveIdFromUserNumber(flag);
+  if (rid.code != CustomError::Ok) {
+    return rid.code;
+  }
+  std::optional<uint64_t> index = findIndexById(*rid.id);
+
+  if (!index) {
+    return CustomError::NoSuchTask;
+  }
+  tasks_[*index].markAsDone(false);
+  return CustomError::Ok;
+}
 std::optional<bool> TaskManager::getTaskDoneStatus(const std::string &flag) {
   ResolvedId rid = resolveIdFromUserNumber(flag);
   if (rid.code != CustomError::Ok) {
@@ -294,6 +374,9 @@ help
 add <category:priority:task>
     Add new task with category and priority
 
+edit <id> <new_text>
+    Change text of task
+
 ls [options]
     -s, --sort <id|done|priority>   Sort tasks
     -p, --pending                   Show only pending tasks
@@ -305,8 +388,17 @@ ls [options]
 done <id>
     Mark task as done
 
+undone <id>
+    Mark task as not done
+
 del <id>
     Delete task
+
+undo
+    Undo previous command
+
+clear
+    Clear all tasks
 
 q
     Quit

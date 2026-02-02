@@ -4,8 +4,10 @@ std::string Task::getPriorityString() const {
     return "low";
   } else if (priority_ == Priority::medium) {
     return "medium";
+  } else if (priority_ == Priority::high) {
+    return "high";
   }
-  return "high";
+  return "low";
 }
 Task::Task(uint64_t id, const std::string &text, const std::string &category,
            const Priority &priority)
