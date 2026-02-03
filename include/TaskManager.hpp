@@ -1,24 +1,14 @@
 #pragma once
 #include "Command.hpp"
 #include "Task.hpp"
-#include "json.hpp"
+#include "Utils.hpp"
 #include <cstdint>
 #include <memory>
 #include <optional>
 #include <stack>
 #include <string>
 #include <vector>
-using json = nlohmann::json;
 
-enum class CustomError { Ok, InvalidNumber, NoSuchTask, ParseError, IoError };
-struct ResultIndex {
-  CustomError code;
-  size_t index = 0;
-};
-struct ResolvedId {
-  CustomError code = CustomError::InvalidNumber;
-  std::optional<uint64_t> id;
-};
 class TaskManager {
 private:
   std::vector<Task> tasks_;

@@ -10,10 +10,6 @@ std::string Task::getPriorityString() const {
   return "low";
 }
 Task::Task(uint64_t id, const std::string &text, const std::string &category,
-           const Priority &priority)
-    : id_(id), text_(text), category_(category), priority_(priority),
-      done_(false) {}
-Task::Task(uint64_t id, const std::string &text, const std::string &category,
-           const Priority &priority, bool done)
+           const Priority priority, bool done)
     : id_(id), text_(text), category_(category), priority_(priority),
       done_(done) {}
