@@ -33,11 +33,11 @@ int main() {
       manager.printHelp();
     } else if (cmd == "add") {
       auto command = std::make_unique<AddCommand>(manager, flag);
-      manager.executeCommand(std::move(command));
+      printError(manager.executeCommand(std::move(command)));
       printError(manager.save(path));
     } else if (cmd == "edit") {
       auto command = std::make_unique<EditCommand>(manager, flag);
-      manager.executeCommand(std::move(command));
+      printError(manager.executeCommand(std::move(command)));
       printError(manager.save(path));
     } else if (cmd == "undo") {
       manager.undo();

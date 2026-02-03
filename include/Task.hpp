@@ -14,11 +14,9 @@ private:
 public:
   Task(uint64_t id, const std::string &text,
        const std::string &category = "general",
-       const Priority &priority = Priority::low);
-  Task(uint64_t id, const std::string &text, const std::string &category,
-       const Priority &priority, bool done);
+       const Priority priority = Priority::low, bool done = false);
   uint64_t getId() const { return id_; }
-  std::string getText() const { return text_; }
+  const std::string &getText() const { return text_; }
   void changeText(const std::string &text) { text_ = text; }
   std::string getCategory() const { return category_; }
   Priority getPriority() const { return priority_; }
